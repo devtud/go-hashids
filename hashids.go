@@ -133,9 +133,9 @@ func NewWithData(data *HashIDData) (*HashID, error) {
 	}
 
 	// Calculate the maximum possible string length by hashing the maximum possible id
-	encoded, err := hid.EncodeInt64([]int64{math.MaxInt64})
+	encoded, err := hid.EncodeUInt64([]uint64{math.MaxUint64})
 	if err != nil {
-		return nil, fmt.Errorf("Unable to encode maximum int64 to find max encoded value length: %s", err)
+		return nil, fmt.Errorf("Unable to encode maximum uint64 to find max encoded value length: %s", err)
 	}
 	hid.maxLengthPerNumber = len(encoded)
 
@@ -145,16 +145,16 @@ func NewWithData(data *HashIDData) (*HashID, error) {
 // Encode hashes an array of int to a string containing at least MinLength characters taken from the Alphabet.
 // Use Decode using the same Alphabet and Salt to get back the array of int.
 func (h *HashID) Encode(numbers []int) (string, error) {
-	numbers64 := make([]int64, 0, len(numbers))
+	numbers64 := make([]uint64, 0, len(numbers))
 	for _, id := range numbers {
-		numbers64 = append(numbers64, int64(id))
+		numbers64 = append(numbers64, uint64(id))
 	}
-	return h.EncodeInt64(numbers64)
+	return h.EncodeUInt64(numbers64)
 }
 
-// EncodeInt64 hashes an array of int64 to a string containing at least MinLength characters taken from the Alphabet.
-// Use DecodeInt64 using the same Alphabet and Salt to get back the array of int64.
-func (h *HashID) EncodeInt64(numbers []int64) (string, error) {
+// EncodeUInt64 hashes an array of uint64 to a string containing at least MinLength characters taken from the Alphabet.
+// Use DecodeUInt64 using the same Alphabet and Salt to get back the array of uint64.
+func (h *HashID) EncodeUInt64(numbers []uint64) (string, error) {
 	if len(numbers) == 0 {
 		return "", errors.New("encoding empty array of numbers makes no sense")
 	}
@@ -166,9 +166,9 @@ func (h *HashID) EncodeInt64(numbers []int64) (string, error) {
 
 	alphabet := duplicateRuneSlice(h.alphabet)
 
-	numbersHash := int64(0)
+	numbersHash := uint64(0)
 	for i, n := range numbers {
-		numbersHash += (n % int64(i+100))
+		numbersHash += (n % uint64(i+100))
 	}
 
 	maxRuneLength := h.maxLengthPerNumber * len(numbers)
@@ -177,7 +177,7 @@ func (h *HashID) EncodeInt64(numbers []int64) (string, error) {
 	}
 
 	result := make([]rune, 0, maxRuneLength)
-	lottery := alphabet[numbersHash%int64(len(alphabet))]
+	lottery := alphabet[numbersHash%uint64(len(alphabet))]
 	result = append(result, lottery)
 	hashBuf := make([]rune, maxRuneLength)
 	buffer := make([]rune, len(alphabet)+len(h.salt)+1)
@@ -192,17 +192,17 @@ func (h *HashID) EncodeInt64(numbers []int64) (string, error) {
 		result = append(result, hashBuf...)
 
 		if i+1 < len(numbers) {
-			n %= int64(hashBuf[0]) + int64(i)
-			result = append(result, h.seps[n%int64(len(h.seps))])
+			n %= uint64(hashBuf[0]) + uint64(i)
+			result = append(result, h.seps[n%uint64(len(h.seps))])
 		}
 	}
 
 	if len(result) < h.minLength {
-		guardIndex := (numbersHash + int64(result[0])) % int64(len(h.guards))
+		guardIndex := (numbersHash + uint64(result[0])) % uint64(len(h.guards))
 		result = append([]rune{h.guards[guardIndex]}, result...)
 
 		if len(result) < h.minLength {
-			guardIndex = (numbersHash + int64(result[2])) % int64(len(h.guards))
+			guardIndex = (numbersHash + uint64(result[2])) % uint64(len(h.guards))
 			result = append(result, h.guards[guardIndex])
 		}
 	}
@@ -264,7 +264,7 @@ func (h *HashID) Decode(hash string) []int {
 // It is symmetric with Encode if the Alphabet and Salt are the same ones which were used to hash.
 // MinLength has no effect on Decode.
 func (h *HashID) DecodeWithError(hash string) ([]int, error) {
-	result64, err := h.DecodeInt64WithError(hash)
+	result64, err := h.DecodeUInt64WithError(hash)
 	if err != nil {
 		return nil, err
 	}
@@ -275,29 +275,29 @@ func (h *HashID) DecodeWithError(hash string) ([]int, error) {
 	return result, nil
 }
 
-// DEPRECATED: Use DecodeInt64WithError instead
-// DecodeInt64 unhashes the string passed to an array of int64.
-// It is symmetric with EncodeInt64 if the Alphabet and Salt are the same ones which were used to hash.
-// MinLength has no effect on DecodeInt64.
-func (h *HashID) DecodeInt64(hash string) []int64 {
-	result, err := h.DecodeInt64WithError(hash)
+// DEPRECATED: Use DecodeUInt64WithError instead
+// DecodeUInt64 unhashes the string passed to an array of uint64.
+// It is symmetric with EncodeUInt64 if the Alphabet and Salt are the same ones which were used to hash.
+// MinLength has no effect on DecodeUInt64.
+func (h *HashID) DecodeUInt64(hash string) []uint64 {
+	result, err := h.DecodeUInt64WithError(hash)
 	if err != nil {
 		panic(err)
 	}
 	return result
 }
 
-// DecodeInt64 unhashes the string passed to an array of int64.
-// It is symmetric with EncodeInt64 if the Alphabet and Salt are the same ones which were used to hash.
-// MinLength has no effect on DecodeInt64.
-func (h *HashID) DecodeInt64WithError(hash string) ([]int64, error) {
+// DecodeUInt64 unhashes the string passed to an array of uint64.
+// It is symmetric with EncodeUInt64 if the Alphabet and Salt are the same ones which were used to hash.
+// MinLength has no effect on DecodeUInt64.
+func (h *HashID) DecodeUInt64WithError(hash string) ([]uint64, error) {
 	hashes := splitRunes([]rune(hash), h.guards)
 	hashIndex := 0
 	if len(hashes) == 2 || len(hashes) == 3 {
 		hashIndex = 1
 	}
 
-	result := make([]int64, 0, 10)
+	result := make([]uint64, 0, 10)
 
 	hashBreakdown := hashes[hashIndex]
 	if len(hashBreakdown) > 0 {
@@ -320,7 +320,7 @@ func (h *HashID) DecodeInt64WithError(hash string) ([]int64, error) {
 		}
 	}
 
-	sanityCheck, _ := h.EncodeInt64(result)
+	sanityCheck, _ := h.EncodeUInt64(result)
 	if sanityCheck != hash {
 		return result, fmt.Errorf("mismatch between encode and decode: %s start %s"+
 			" re-encoded. result: %v", hash, sanityCheck, result)
@@ -334,7 +334,7 @@ func (h *HashID) DecodeInt64WithError(hash string) ([]int64, error) {
 //
 // Each hex nibble is decoded from an integer in range [16, 31].
 func (h *HashID) DecodeHex(hash string) (string, error) {
-	numbers, err := h.DecodeInt64WithError(hash)
+	numbers, err := h.DecodeUInt64WithError(hash)
 	if err != nil {
 		return "", err
 	}
@@ -372,12 +372,12 @@ func splitRunes(input, seps []rune) [][]rune {
 	return result
 }
 
-func hash(input int64, alphabet []rune, result []rune) []rune {
+func hash(input uint64, alphabet []rune, result []rune) []rune {
 	result = result[:0]
 	for {
-		r := alphabet[input%int64(len(alphabet))]
+		r := alphabet[input%uint64(len(alphabet))]
 		result = append(result, r)
-		input /= int64(len(alphabet))
+		input /= uint64(len(alphabet))
 		if input == 0 {
 			break
 		}
@@ -389,8 +389,8 @@ func hash(input int64, alphabet []rune, result []rune) []rune {
 	return result
 }
 
-func unhash(input, alphabet []rune) (int64, error) {
-	result := int64(0)
+func unhash(input, alphabet []rune) (uint64, error) {
+	result := uint64(0)
 	for _, inputRune := range input {
 		alphabetPos := -1
 		for pos, alphabetRune := range alphabet {
@@ -403,7 +403,7 @@ func unhash(input, alphabet []rune) (int64, error) {
 			return 0, errors.New("alphabet used for hash was different")
 		}
 
-		result = result*int64(len(alphabet)) + int64(alphabetPos)
+		result = result*uint64(len(alphabet)) + uint64(alphabetPos)
 	}
 	return result, nil
 }
